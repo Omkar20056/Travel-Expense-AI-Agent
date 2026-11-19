@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Travel Expense Tracker AI Agent</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <!-- Chart.js via reliable CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <header>
+    <div class="brand">
+      <div class="logo-icon">✈️</div>
+      <div>
+        <h1>Travel Expense Agent <span>AI Powered</span></h1>
+      </div>
+    </div>
+    <div class="header-controls">
+      <div class="trip-selector">
+        <label for="tripSelect" style="font-size:0.85rem; font-weight:600; color:var(--text-muted);">Trip:</label>
+        <select id="tripSelect"></select>
+      </div>
+      <button id="btnNewTrip" class="btn-secondary">+ New Trip</button>
+      <button id="btnExportCsv" class="btn-secondary">📥 Export CSV</button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="app-container">
+
+    <!-- Left Column: Conversational AI Agent & Receipt Parser -->
+    <aside class="agent-panel">
+      <div class="agent-header">
+        <div class="agent-title">
+          <span class="status-dot"></span>
+          <span>Expense AI Assistant</span>
+        </div>
+        <small style="color:var(--text-muted);" id="activeTripNameBadge">Loading trip...</small>
+      </div>
+
+      <!-- Chat Messages Container -->
+      <div class="chat-history" id="chatHistory">
+        <div class="chat-bubble agent">
+          👋 Hi! I'm your travel expense AI assistant. You can log expenses like <em>"Paid 45 euros for dinner in Rome, split with Sam"</em>, upload receipt photos, or ask <em>"Am I on track for my budget?"</em>.
+        </div>
+      </div>
+
+      <!-- Quick Action Chips -->
+      <div class="quick-chips">
+        <button class="chip" data-prompt="Am I on track for my budget?">📊 Budget Check</button>
+        <button class="chip" data-prompt="Who owes whom? Show settlements">👥 Settlements</button>
+        <button class="chip" data-prompt="Check for duplicate or unusual expenses">🔍 Check Anomalies</button>
+        <button class="chip" data-prompt="How much did I spend on food?">🍔 Food Spend</button>
+        <button class="chip" data-prompt="Paid 450 rupees for lunch in Belgaum">🍛 ₹450 Lunch</button>
+        <button class="chip" data-prompt="Paid 45 euros for dinner in Rome, split with Sam">🍕 Sample Euro</button>
+      </div>
+
+      <!-- Input Area & Receipt Dropzone -->
+      <div class="chat-input-area">
+        <!-- Receipt File Picker / Dropzone -->
+        <div class="receipt-dropzone" id="receiptDropzone">
+          <input type="file" id="receiptFileInput" accept="image/*" style="display:none;">
+          <span>📸 <strong>Click or drop a receipt photo</strong> to auto-extract</span>
+          <div id="receiptPreviewName" style="font-size:0.75rem; color:var(--primary); margin-top:2px; font-weight:600;"></div>
+        </div>
+        <button type="button" class="btn-sms-paste" id="btnOpenSmsModal">📱 Paste UPI / Bank SMS Alert</button>
+
+        <form id="chatForm" class="input-row">
+          <input type="text" id="chatInput" placeholder="Log expense, paste SMS, or ask a question..." autocomplete="off">
+          <button type="button" id="btnVoiceInput" class="btn-voice" title="Click to speak (Voice Expense Input)">🎙️</button>
+          <button type="submit" id="btnSend">Send</button>
+        </form>
+      </div>
+    </aside>
+
+    <!-- Right Column: Dashboard & Real-Time Analytics -->
+    <main class="dashboard-panel">
+
+      <!-- Alert Banner -->
+      <div id="alertBanner" class="alert-banner success" style="display: none;">
+        <span id="alertIcon">ℹ️</span>
+        <span id="alertText">Budget on track.</span>
+      </div>
+
+      <!-- Metric Cards -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <span class="metric-title">Total Budget</span>
+          <span class="metric-value" id="valTotalBudget">$0.00</span>
+          <span class="metric-subtitle" id="valHomeCurrency">Home Currency</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-title">Total Spent</span>
+          <span class="metric-value" id="valTotalSpent">$0.00</span>
+          <span class="metric-subtitle" id="valPercentageUsed">0% of budget</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-title">Remaining Budget</span>
+          <span class="metric-value" id="valRemainingBudget">$0.00</span>
+          <span class="metric-subtitle" id="valDaysRemaining">0 days left</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-title">Daily Burn Rate</span>
+          <span class="metric-value" id="valDailyAvg">$0.00</span>
+          <span class="metric-subtitle" id="valDailyTarget">Target: $0.00/day</span>
+        </div>
+      </div>
+
+      <!-- Visual Charts -->
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>Spending by Category</h3>
+          <div class="chart-wrapper">
+            <canvas id="categoryChart"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <h3>Daily Spending Trend</h3>
+          <div class="chart-wrapper">
+            <canvas id="dailyChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filterable Expenses Table -->
+      <div class="table-card">
+        <div class="table-header">
+          <h3>Recent Expenses</h3>
+          <div class="table-actions">
+            <select id="filterCategory">
+              <option value="">All Categories</option>
+              <option value="food">🍔 Food</option>
+              <option value="transport">🚕 Transport</option>
+              <option value="lodging">🏨 Lodging</option>
+              <option value="activities">🎟️ Activities</option>
+              <option value="shopping">🛍️ Shopping</option>
+              <option value="fees">💳 Fees</option>
+              <option value="other">📦 Other</option>
+            </select>
+            <input type="text" id="filterCity" placeholder="Filter by city..." style="width: 140px;">
+          </div>
+        </div>
+        <div class="table-container">
+          <table id="expensesTable">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>City</th>
+                <th>Original Paid</th>
+                <th>Converted (Home)</th>
+                <th>Split / Notes</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="expensesTableBody">
+              <tr>
+                <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2rem;">No expenses logged yet. Try chatting with the agent!</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Group Debt Settlements Card (Splitwise Engine) -->
+      <div class="settlement-card" id="settlementCard">
+        <div class="settlement-header">
+          <h3>👥 Group & Settlements (Splitwise Engine)</h3>
+          <button type="button" id="btnCopyWhatsApp" class="btn-whatsapp">📲 Copy WhatsApp Summary</button>
+        </div>
+        <div class="participant-pills" id="participantPills">
+          <span class="pill-balance zero">No group participants yet</span>
+        </div>
+        <div class="debt-transfer-list" id="debtTransferList">
+          <div class="debt-transfer-item" style="color:var(--text-muted); justify-content:center;">
+            🎉 All expenses are settled or single-traveler.
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Paste Bank/UPI SMS Modal -->
+  <div class="modal-overlay" id="smsModal">
+    <div class="modal-card">
+      <h2>📱 Auto-Log from Bank / UPI SMS</h2>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">
+        Paste any payment SMS from Google Pay, PhonePe, Paytm, or your bank credit/debit card. The AI will extract the amount, merchant, and category.
+      </p>
+      <form id="smsForm">
+        <div class="form-group">
+          <label for="smsText">Transaction SMS Text</label>
+          <textarea id="smsText" rows="4" placeholder="e.g. Sent Rs.450.00 from Kotak Bank AC X1234 to STARBUCKS via UPI Ref 412345678901 on 18-11-26" required style="width:100%; border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.6rem; font-size:0.85rem;"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" id="btnCancelSmsModal">Cancel</button>
+          <button type="submit" id="btnParseSms">Parse & Log Expense</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Create New Trip Modal -->
+  <div class="modal-overlay" id="newTripModal">
+    <div class="modal-card">
+      <h2>Create New Trip</h2>
+      <form id="newTripForm">
+        <div class="form-group">
+          <label for="tripName">Trip Name</label>
+          <input type="text" id="tripName" placeholder="e.g. European Summer 2026" required>
+        </div>
+        <div class="form-group">
+          <label for="tripDestinations">Destinations (comma separated)</label>
+          <input type="text" id="tripDestinations" placeholder="Rome, Paris, Florence" required>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div class="form-group">
+            <label for="tripStartDate">Start Date</label>
+            <input type="date" id="tripStartDate" required>
+          </div>
+          <div class="form-group">
+            <label for="tripEndDate">End Date</label>
+            <input type="date" id="tripEndDate" required>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 0.75rem;">
+          <div class="form-group">
+            <label for="tripBudget">Total Budget</label>
+            <input type="number" id="tripBudget" step="0.01" min="1" placeholder="2500.00" required>
+          </div>
+          <div class="form-group">
+            <label for="tripCurrency">Home Currency</label>
+            <select id="tripCurrency">
+              <option value="INR">INR (₹)</option>
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="GBP">GBP (£)</option>
+              <option value="CAD">CAD ($)</option>
+              <option value="AUD">AUD ($)</option>
+              <option value="JPY">JPY (¥)</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" id="btnCancelModal">Cancel</button>
+          <button type="submit" id="btnSaveTrip">Create Trip</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/dashboard.js"></script>
+  <script src="/static/js/chat.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
