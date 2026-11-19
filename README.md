@@ -31,6 +31,12 @@ An autonomous AI agent designed to log, categorize, and analyze expenses during 
 
 ---
 
+## 🧑‍💻 Development Workflow
+
+This project was developed with AI-assisted coding in **Google Antigravity IDE**. I also made code edits and configured the Google Gemini API integration. I'm continuing to review the generated code, understand the application flow, and improve the implementation.
+
+---
+
 ## 🚀 Quick Start Guide
 
 ### 1. Configure Your Google AI Studio API Key
